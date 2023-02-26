@@ -1,0 +1,108 @@
+ALTER PROCEDURE spDropSchemasRolesUsers2
+@DBNAME VARCHAR(128)
+AS
+BEGIN
+
+/* DROP SCHEMAS */
+
+DECLARE @SSQL nvarchar(1024), 
+        @Sname varchar(255),
+		
+		@Stype varchar(50),
+		@SLCSQL NVARCHAR(MAX);
+
+SET @SSQL = 'DECLARE Svend_cursor CURSOR GLOBAL
+               FOR
+                SELECT NAME FROM '+@DBNAME+'.sys.SCHEMAS ';
+
+EXECUTE sp_executesql @SSQL;
+OPEN Svend_cursor	
+FETCH NEXT FROM Svend_cursor INTO @Sname;  
+
+WHILE @@FETCH_STATUS = 0   
+BEGIN   
+
+
+			DECLARE @SASQL NVARCHAR(4000)
+    BEGIN TRY
+	
+			
+		set @SASQL = '    USE '+QUOTENAME(@DBNAME)+' 
+		'
+		SET @SASQL+= '; DROP SCHEMA '+QUOTENAME(@Sname)+'  '
+		
+			EXECUTE sp_executesql @SASQL;
+				
+	
+END TRY
+
+BEGIN CATCH
+
+PRINT ERROR_MESSAGE()
+				END CATCH
+
+    FETCH NEXT FROM Svend_cursor INTO @Sname;  
+END   
+
+CLOSE Svend_cursor   
+DEALLOCATE Svend_cursor ;
+
+
+/* DROP USER AND ROLES */
+
+DECLARE @SQL nvarchar(1024), 
+        @name varchar(255),
+	
+		@type varchar(50),
+		@LCSQL NVARCHAR(MAX);
+
+SET @SQL = 'DECLARE vend_cursor CURSOR GLOBAL
+               FOR
+                SELECT NAME,type FROM '+@DBNAME+'.sys.database_principals ORDER BY TYPE DESC';
+
+EXECUTE sp_executesql @SQL;
+OPEN vend_cursor
+FETCH NEXT FROM vend_cursor INTO @name,@type;  
+
+WHILE @@FETCH_STATUS = 0   
+BEGIN   
+
+
+			DECLARE @ASQL NVARCHAR(4000)
+    BEGIN TRY
+	IF @type = 'U'  -- can be W USER
+		BEGIN
+			
+		set @ASQL = '    USE '+QUOTENAME(@DBNAME)+' 
+		'
+		SET @ASQL+= '; DROP USER '+QUOTENAME(@name)+'  '
+		
+EXECUTE sp_executesql @ASQL;
+				
+
+	END
+
+	IF @type = 'R'
+		BEGIN
+			
+		set @ASQL = '    USE '+QUOTENAME(@DBNAME)+' 
+		'
+		SET @ASQL+= ';  DROP ROLE   '+QUOTENAME(@name)+' '
+		
+EXECUTE sp_executesql @ASQL;
+
+		END
+END TRY
+
+BEGIN CATCH
+
+PRINT ERROR_MESSAGE()
+				END CATCH
+
+    FETCH NEXT FROM vend_cursor INTO @name,@type;  
+END   
+
+CLOSE vend_cursor   
+DEALLOCATE vend_cursor
+
+END
